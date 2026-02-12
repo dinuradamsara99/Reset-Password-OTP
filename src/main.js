@@ -7,7 +7,22 @@ export default async ({ req, res, log, error }) => {
         .setKey(process.env.APPWRITE_API_KEY);
 
     const users = new Users(client);
-    const { action, password, email } = JSON.parse(req.body || '{}');
+
+    // req.body can be a string or already-parsed object depending on Appwrite version
+    let body;
+    if (typeof req.body === 'string') {
+        try {
+            body = JSON.parse(req.body);
+        } catch {
+            body = {};
+        }
+    } else {
+        body = req.body || {};
+    }
+
+    const { action, password, email } = body;
+
+    log(`Action: ${action}, Email: ${email}`);
 
     // ---- Action: Check if email exists ----
     if (action === 'check-email') {
@@ -16,6 +31,7 @@ export default async ({ req, res, log, error }) => {
         }
         try {
             const result = await users.list([Query.equal('email', [email])]);
+            log(`Email check: ${email} => exists: ${result.total > 0}`);
             return res.json({ ok: true, exists: result.total > 0 });
         } catch (err) {
             error(`Failed to check email: ${err.message}`);
@@ -42,5 +58,5 @@ export default async ({ req, res, log, error }) => {
         }
     }
 
-    return res.json({ ok: false, message: 'Unknown action' }, 400);
+    return res.json({ ok: false, message: `Unknown action: ${action}` }, 400);
 };
